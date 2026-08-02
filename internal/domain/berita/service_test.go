@@ -77,28 +77,42 @@ func TestService_Create(t *testing.T) {
 		repo := mocks.NewRepository(t)
 
 		repo.On("Create", mock.Anything, mock.MatchedBy(func(b *berita.Berita) bool {
-			return b.ID != 0 && b.AuthorID == id.ID(10) && b.Title == "News" && b.Content == "Body" && !b.CreatedAt.IsZero() && !b.UpdatedAt.IsZero()
+			return b.ID != 0 && b.AuthorID == id.ID(10) && b.Title == "News" && b.Content == "Body" && b.IsAchievement && !b.CreatedAt.IsZero() && !b.UpdatedAt.IsZero()
 		})).Return(nil)
 
 		svc := berita.NewService(repo)
-		got, err := svc.Create(context.Background(), id.ID(10), "News", "Body")
+		got, err := svc.Create(context.Background(), id.ID(10), "News", "Body", true)
 		require.NoError(t, err)
 		require.NotEmpty(t, got.ID)
 		require.Equal(t, id.ID(10), got.AuthorID)
 		require.Equal(t, "News", got.Title)
+		require.True(t, got.IsAchievement)
+	})
+
+	t.Run("non achievement", func(t *testing.T) {
+		repo := mocks.NewRepository(t)
+
+		repo.On("Create", mock.Anything, mock.MatchedBy(func(b *berita.Berita) bool {
+			return !b.IsAchievement
+		})).Return(nil)
+
+		svc := berita.NewService(repo)
+		got, err := svc.Create(context.Background(), id.ID(10), "News", "Body", false)
+		require.NoError(t, err)
+		require.False(t, got.IsAchievement)
 	})
 
 	t.Run("empty content rejected", func(t *testing.T) {
 		repo := mocks.NewRepository(t)
 		svc := berita.NewService(repo)
-		_, err := svc.Create(context.Background(), id.ID(10), "News", "   ")
+		_, err := svc.Create(context.Background(), id.ID(10), "News", "   ", false)
 		require.ErrorIs(t, err, berita.ErrContentRequired)
 	})
 
 	t.Run("content too large rejected", func(t *testing.T) {
 		repo := mocks.NewRepository(t)
 		svc := berita.NewService(repo)
-		_, err := svc.Create(context.Background(), id.ID(10), "News", strings.Repeat("x", 100*1024+1))
+		_, err := svc.Create(context.Background(), id.ID(10), "News", strings.Repeat("x", 100*1024+1), false)
 		require.ErrorIs(t, err, berita.ErrContentTooLarge)
 	})
 
@@ -108,7 +122,7 @@ func TestService_Create(t *testing.T) {
 		repo.On("Create", mock.Anything, mock.Anything).Return(errors.New("insert failed"))
 
 		svc := berita.NewService(repo)
-		_, err := svc.Create(context.Background(), id.ID(10), "News", "Body")
+		_, err := svc.Create(context.Background(), id.ID(10), "News", "Body", false)
 		require.EqualError(t, err, "insert failed")
 	})
 }
@@ -120,13 +134,14 @@ func TestService_Update(t *testing.T) {
 		existing := &berita.Berita{ID: id.ID(1), AuthorID: id.ID(10), Title: "Old", Content: "Old body"}
 		repo.On("ByID", mock.Anything, id.ID(1)).Return(existing, nil)
 		repo.On("Update", mock.Anything, mock.MatchedBy(func(b *berita.Berita) bool {
-			return b.ID == id.ID(1) && b.Title == "New" && b.Content == "New body" && !b.UpdatedAt.IsZero()
+			return b.ID == id.ID(1) && b.Title == "New" && b.Content == "New body" && b.IsAchievement && !b.UpdatedAt.IsZero()
 		})).Return(nil)
 
 		svc := berita.NewService(repo)
-		got, err := svc.Update(context.Background(), id.ID(1), id.ID(10), "New", "New body")
+		got, err := svc.Update(context.Background(), id.ID(1), id.ID(10), "New", "New body", true)
 		require.NoError(t, err)
 		require.Equal(t, "New", got.Title)
+		require.True(t, got.IsAchievement)
 	})
 
 	t.Run("berita not found", func(t *testing.T) {
@@ -135,7 +150,7 @@ func TestService_Update(t *testing.T) {
 		repo.On("ByID", mock.Anything, id.ID(99)).Return((*berita.Berita)(nil), nil)
 
 		svc := berita.NewService(repo)
-		_, err := svc.Update(context.Background(), id.ID(99), id.ID(10), "New", "Body")
+		_, err := svc.Update(context.Background(), id.ID(99), id.ID(10), "New", "Body", false)
 		require.EqualError(t, err, "berita not found")
 	})
 
@@ -146,7 +161,7 @@ func TestService_Update(t *testing.T) {
 		repo.On("ByID", mock.Anything, id.ID(1)).Return(existing, nil)
 
 		svc := berita.NewService(repo)
-		_, err := svc.Update(context.Background(), id.ID(1), id.ID(11), "New", "Body")
+		_, err := svc.Update(context.Background(), id.ID(1), id.ID(11), "New", "Body", false)
 		require.EqualError(t, err, "forbidden: not the author")
 	})
 
@@ -156,7 +171,7 @@ func TestService_Update(t *testing.T) {
 		repo.On("ByID", mock.Anything, id.ID(1)).Return((*berita.Berita)(nil), errors.New("db down"))
 
 		svc := berita.NewService(repo)
-		_, err := svc.Update(context.Background(), id.ID(1), id.ID(10), "New", "Body")
+		_, err := svc.Update(context.Background(), id.ID(1), id.ID(10), "New", "Body", false)
 		require.EqualError(t, err, "db down")
 	})
 
@@ -168,21 +183,21 @@ func TestService_Update(t *testing.T) {
 		repo.On("Update", mock.Anything, mock.Anything).Return(errors.New("update failed"))
 
 		svc := berita.NewService(repo)
-		_, err := svc.Update(context.Background(), id.ID(1), id.ID(10), "New", "Body")
+		_, err := svc.Update(context.Background(), id.ID(1), id.ID(10), "New", "Body", false)
 		require.EqualError(t, err, "update failed")
 	})
 
 	t.Run("empty content rejected", func(t *testing.T) {
 		repo := mocks.NewRepository(t)
 		svc := berita.NewService(repo)
-		_, err := svc.Update(context.Background(), id.ID(1), id.ID(10), "New", "")
+		_, err := svc.Update(context.Background(), id.ID(1), id.ID(10), "New", "", false)
 		require.ErrorIs(t, err, berita.ErrContentRequired)
 	})
 
 	t.Run("content too large rejected", func(t *testing.T) {
 		repo := mocks.NewRepository(t)
 		svc := berita.NewService(repo)
-		_, err := svc.Update(context.Background(), id.ID(1), id.ID(10), "New", strings.Repeat("x", 100*1024+1))
+		_, err := svc.Update(context.Background(), id.ID(1), id.ID(10), "New", strings.Repeat("x", 100*1024+1), false)
 		require.ErrorIs(t, err, berita.ErrContentTooLarge)
 	})
 }

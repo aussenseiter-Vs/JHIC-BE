@@ -22,13 +22,14 @@ func TestRepository_CreateAndByID(t *testing.T) {
 
 	now := time.Now().UTC()
 	b := &berita.Berita{
-		ID:        id.ID(100),
-		AuthorID:  id.ID(1),
-		Title:     "Title",
-		Content:   "Content",
-		ImageURL:  "",
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:            id.ID(100),
+		AuthorID:      id.ID(1),
+		Title:         "Title",
+		Content:       "Content",
+		ImageURL:      "",
+		IsAchievement: true,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 	require.NoError(t, repo.Create(ctx, b))
 
@@ -39,6 +40,7 @@ func TestRepository_CreateAndByID(t *testing.T) {
 	require.Equal(t, b.Content, got.Content)
 	require.Equal(t, id.ID(1), got.AuthorID)
 	require.Empty(t, got.ImageURL)
+	require.True(t, got.IsAchievement)
 	require.False(t, got.CreatedAt.IsZero())
 }
 
@@ -90,6 +92,7 @@ func TestRepository_Update(t *testing.T) {
 	got.Title = "New"
 	got.Content = "New body"
 	got.ImageURL = "berita/100/photo.png"
+	got.IsAchievement = true
 	got.UpdatedAt = time.Now().UTC()
 	require.NoError(t, repo.Update(ctx, got))
 
@@ -98,6 +101,7 @@ func TestRepository_Update(t *testing.T) {
 	require.Equal(t, "New", check.Title)
 	require.Equal(t, "New body", check.Content)
 	require.Equal(t, "berita/100/photo.png", check.ImageURL)
+	require.True(t, check.IsAchievement)
 	require.False(t, check.UpdatedAt.IsZero())
 }
 

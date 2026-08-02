@@ -22,15 +22,18 @@ The `berita` domain handles news article CRUD and image management. Articles are
 
 ```go
 type Berita struct {
-    ID        id.ID     `json:"id"`
-    AuthorID  id.ID     `json:"author_id"`
-    Title     string    `json:"title"`
-    Content   string    `json:"content"`
-    ImageURL  string    `json:"image_url,omitempty"`
-    CreatedAt time.Time `json:"created_at"`
-    UpdatedAt time.Time `json:"updated_at"`
+    ID            id.ID     `json:"id"`
+    AuthorID      id.ID     `json:"author_id"`
+    Title         string    `json:"title"`
+    Content       string    `json:"content"`
+    ImageURL      string    `json:"image_url,omitempty"`
+    IsAchievement bool      `json:"is_achievement"`
+    CreatedAt     time.Time `json:"created_at"`
+    UpdatedAt     time.Time `json:"updated_at"`
 }
 ```
+
+`is_achievement` marks an article as a prestasi/achievement (defaults to `false`). It is set on create/update via the `is_achievement` boolean in the request body and returned on all read endpoints.
 
 ## Endpoints
 
@@ -112,7 +115,7 @@ curl http://localhost:8080/api/v1/berita/{id}
 curl -X POST http://localhost:8080/api/v1/berita \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer <token>' \
-  -d '{"title":"Breaking News","content":"## Lead\n\nSomething happened today.\n\n## Details\n\n- first\n- second"}'
+  -d '{"title":"Breaking News","content":"## Lead\n\nSomething happened today.","is_achievement":true}'
 
 # Upload inline image
 curl -X POST http://localhost:8080/api/v1/berita/{id}/images \
@@ -124,7 +127,7 @@ curl -X POST http://localhost:8080/api/v1/berita/{id}/images \
 curl -X PUT http://localhost:8080/api/v1/berita/{id} \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer <token>' \
-  -d '{"title":"Breaking News","content":"![caption](berita/{id}/content/{uuid}.png)\n\nDetails."}'
+  -d '{"title":"Breaking News","content":"![caption](berita/{id}/content/{uuid}.png)\n\nDetails.","is_achievement":false}'
 
 # Delete inline image
 curl -X DELETE 'http://localhost:8080/api/v1/berita/{id}/images?key=berita/{id}/content/{uuid}.png' \

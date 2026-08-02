@@ -44,8 +44,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(middleware.UserIDKey).(id.ID)
 
 	var input struct {
-		Title   string `json:"title"`
-		Content string `json:"content"`
+		Title         string `json:"title"`
+		Content       string `json:"content"`
+		IsAchievement bool   `json:"is_achievement"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -61,7 +62,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, err := h.svc.Create(r.Context(), userID, input.Title, content)
+	b, err := h.svc.Create(r.Context(), userID, input.Title, content, input.IsAchievement)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -110,8 +111,9 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input struct {
-		Title   string `json:"title"`
-		Content string `json:"content"`
+		Title         string `json:"title"`
+		Content       string `json:"content"`
+		IsAchievement bool   `json:"is_achievement"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -123,7 +125,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, err := h.svc.Update(r.Context(), id, userID, input.Title, content)
+	b, err := h.svc.Update(r.Context(), id, userID, input.Title, content, input.IsAchievement)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return

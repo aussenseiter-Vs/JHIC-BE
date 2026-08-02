@@ -223,9 +223,10 @@ func TestE2E_BeritaLifecycle(t *testing.T) {
 
 	baseURL := e.server.URL + "/api/v1/berita"
 
-	createResp := doJSON(t, http.MethodPost, baseURL, token, map[string]string{
-		"title":   "First News",
-		"content": "Body of the first news",
+	createResp := doJSON(t, http.MethodPost, baseURL, token, map[string]any{
+		"title":          "First News",
+		"content":        "Body of the first news",
+		"is_achievement": true,
 	})
 	require.Equal(t, http.StatusCreated, createResp.StatusCode)
 	var created berita.Berita
@@ -233,14 +234,19 @@ func TestE2E_BeritaLifecycle(t *testing.T) {
 	createResp.Body.Close()
 	require.NotEmpty(t, created.ID)
 	require.Equal(t, userID, created.AuthorID)
+	require.True(t, created.IsAchievement)
 
 	var dbTitle string
 	var dbAuthor int64
 	var dbContent string
+	var dbIsAchievement bool
 	err := e.pool.QueryRow(ctx, `SELECT title, author_id FROM berita WHERE id = $1`, created.ID).Scan(&dbTitle, &dbAuthor)
 	require.NoError(t, err)
 	require.Equal(t, "First News", dbTitle)
 	require.Equal(t, int64(userID), dbAuthor)
+	err = e.pool.QueryRow(ctx, `SELECT is_achievement FROM berita WHERE id = $1`, created.ID).Scan(&dbIsAchievement)
+	require.NoError(t, err)
+	require.True(t, dbIsAchievement)
 
 	listResp := doJSON(t, http.MethodGet, baseURL, token, nil)
 	require.Equal(t, http.StatusOK, listResp.StatusCode)
@@ -257,15 +263,17 @@ func TestE2E_BeritaLifecycle(t *testing.T) {
 	getResp.Body.Close()
 	require.Equal(t, created.ID, got.ID)
 
-	updateResp := doJSON(t, http.MethodPut, baseURL+"/"+created.ID.String(), token, map[string]string{
-		"title":   "Updated News",
-		"content": "Updated body",
+	updateResp := doJSON(t, http.MethodPut, baseURL+"/"+created.ID.String(), token, map[string]any{
+		"title":          "Updated News",
+		"content":        "Updated body",
+		"is_achievement": false,
 	})
 	require.Equal(t, http.StatusOK, updateResp.StatusCode)
 	var updated berita.Berita
 	require.NoError(t, json.NewDecoder(updateResp.Body).Decode(&updated))
 	updateResp.Body.Close()
 	require.Equal(t, "Updated News", updated.Title)
+	require.False(t, updated.IsAchievement)
 
 	err = e.pool.QueryRow(ctx, `SELECT title, content FROM berita WHERE id = $1`, created.ID).Scan(&dbTitle, &dbContent)
 	require.NoError(t, err)

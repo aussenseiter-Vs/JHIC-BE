@@ -28,9 +28,10 @@ type seedUser struct {
 }
 
 type seedBerita struct {
-	authorIdx int
-	title     string
-	content   string
+	authorIdx     int
+	title         string
+	content       string
+	isAchievement bool
 }
 
 func main() {
@@ -129,16 +130,17 @@ func main() {
 		{authorIdx: 1, title: "Liputan Kegiatan Jurnalistik", content: "Kegiatan jurnalistik hari ini berjalan dengan lancar."},
 		{authorIdx: 1, title: "Wawancara Eksklusif dengan Tokoh Masyarakat", content: "Berikut adalah wawancara eksklusif kami."},
 		{authorIdx: 0, title: "Pengumuman Libur Nasional", content: "JHIC libur pada hari libur nasional."},
+		{authorIdx: 1, title: "Prestasi: Juara 1 Lomba Jurnalistik", content: "Tim JHIC meraih Juara 1 Lomba Jurnalistik tingkat kota.", isAchievement: true},
 	}
 
 	for _, b := range beritas {
 		bid := id.New()
 		now := time.Now().UTC()
 		_, err := pool.Exec(ctx,
-			`INSERT INTO berita (id, author_id, title, content, image_url, created_at, updated_at)
-			 VALUES ($1, $2, $3, $4, '', $5, $6)
+			`INSERT INTO berita (id, author_id, title, content, image_url, is_achievement, created_at, updated_at)
+			 VALUES ($1, $2, $3, $4, '', $5, $6, $7)
 			 ON CONFLICT (id) DO NOTHING`,
-			bid, userIDs[b.authorIdx], b.title, b.content, now, now,
+			bid, userIDs[b.authorIdx], b.title, b.content, b.isAchievement, now, now,
 		)
 		if err != nil {
 			log.Fatalf("insert berita: %v", err)

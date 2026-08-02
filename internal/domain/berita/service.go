@@ -43,18 +43,19 @@ func validateContent(content string) error {
 	return nil
 }
 
-func (s *Service) Create(ctx context.Context, authorID id.ID, title, content string) (*Berita, error) {
+func (s *Service) Create(ctx context.Context, authorID id.ID, title, content string, isAchievement bool) (*Berita, error) {
 	if err := validateContent(content); err != nil {
 		return nil, err
 	}
 	now := time.Now().UTC()
 	b := &Berita{
-		ID:        id.New(),
-		AuthorID:  authorID,
-		Title:     title,
-		Content:   content,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:            id.New(),
+		AuthorID:      authorID,
+		Title:         title,
+		Content:       content,
+		IsAchievement: isAchievement,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 	if err := s.repo.Create(ctx, b); err != nil {
 		return nil, err
@@ -62,7 +63,7 @@ func (s *Service) Create(ctx context.Context, authorID id.ID, title, content str
 	return b, nil
 }
 
-func (s *Service) Update(ctx context.Context, id, callerID id.ID, title, content string) (*Berita, error) {
+func (s *Service) Update(ctx context.Context, id, callerID id.ID, title, content string, isAchievement bool) (*Berita, error) {
 	if err := validateContent(content); err != nil {
 		return nil, err
 	}
@@ -78,6 +79,7 @@ func (s *Service) Update(ctx context.Context, id, callerID id.ID, title, content
 	}
 	b.Title = title
 	b.Content = content
+	b.IsAchievement = isAchievement
 	b.UpdatedAt = time.Now().UTC()
 	if err := s.repo.Update(ctx, b); err != nil {
 		return nil, err
