@@ -1,19 +1,4 @@
-package ai
-
-const (
-	ChatMessageMaxLen = 300
-	NexxaAnswerCount  = 8
-	NexxaAnswerMaxLen = 500
-)
-
-type ChatRequest struct {
-	ChatInput string `json:"chatInput"`
-	SessionID string `json:"sessionId"`
-}
-
-type ChatResponse struct {
-	Output string `json:"output"`
-}
+package match
 
 type NexxaRequest struct {
 	Jawaban1 string `json:"jawaban_1"`
@@ -41,21 +26,8 @@ type NexxaResponse struct {
 	PersentaseHotel     int    `json:"persentase_hotel"`
 }
 
-type APIError struct {
-	Field   string `json:"field,omitempty"`
-	Message string `json:"message"`
-}
-
 type ValidateInputData map[string]string
 
 type NormalizeOutputRequest struct {
 	Raw string `json:"raw"`
-}
-
-type NormalizeOutputData struct {
-	NamaJurusan         string `json:"nama_jurusan"`
-	Alasan              string `json:"alasan"`
-	PersentasePPLG      int    `json:"persentase_pplg"`
-	PersentaseAkuntansi int    `json:"persentase_akuntansi"`
-	PersentaseHotel     int    `json:"persentase_hotel"`
 }

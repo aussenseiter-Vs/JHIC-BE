@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/ai"
+	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/n8n"
 	"github.com/stretchr/testify/require"
 )
@@ -88,7 +88,7 @@ func TestClient_Chat(t *testing.T) {
 		})
 		client := n8n.NewClient(n8n.Config{BaseURL: srv.URL, ChatPath: "/chat", Timeout: time.Second})
 		_, err := client.Chat(context.Background(), "halo", "session-1")
-		require.ErrorIs(t, err, ai.ErrN8NUnavailable)
+		require.ErrorIs(t, err, nexxa.ErrN8NUnavailable)
 	})
 
 	t.Run("timeout maps to timeout error", func(t *testing.T) {
@@ -98,7 +98,7 @@ func TestClient_Chat(t *testing.T) {
 		})
 		client := n8n.NewClient(n8n.Config{BaseURL: srv.URL, ChatPath: "/chat", Timeout: 50 * time.Millisecond})
 		_, err := client.Chat(context.Background(), "halo", "session-1")
-		require.ErrorIs(t, err, ai.ErrN8NTimeout)
+		require.ErrorIs(t, err, nexxa.ErrN8NTimeout)
 	})
 }
 
@@ -146,6 +146,6 @@ func TestClient_NexxaMatch(t *testing.T) {
 		})
 		client := n8n.NewClient(n8n.Config{BaseURL: srv.URL, NexxaPath: "/nexxa", Timeout: time.Second})
 		_, err := client.NexxaMatch(context.Background(), []string{"a", "b", "c", "d", "e", "f", "g", "h"})
-		require.ErrorIs(t, err, ai.ErrN8NUnavailable)
+		require.ErrorIs(t, err, nexxa.ErrN8NUnavailable)
 	})
 }

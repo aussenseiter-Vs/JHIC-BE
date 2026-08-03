@@ -14,7 +14,8 @@ import (
 	"time"
 
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal"
-	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/ai"
+	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/chat"
+	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/match"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/auth"
 	authpg "github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/auth/pg"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/berita"
@@ -168,8 +169,10 @@ func TestMain(m *testing.M) {
 		NexxaPath: "/nexxa",
 		Timeout:   5 * time.Second,
 	})
-	aiSvc := ai.NewService(n8nClient)
-	aiHnd := ai.NewHandler(aiSvc, middleware.RateLimit(1000))
+	chatSvc := chat.NewService(n8nClient)
+	chatHnd := chat.NewHandler(chatSvc, middleware.RateLimit(1000))
+	matchSvc := match.NewService(n8nClient)
+	matchHnd := match.NewHandler(matchSvc, middleware.RateLimit(1000))
 
 	tokenValidator := middleware.TokenValidator(auth.NewTokenValidator(sessionsRepo))
 	authMw := middleware.Auth(tokenValidator)
@@ -185,7 +188,7 @@ func TestMain(m *testing.M) {
 	}
 	roleMw := middleware.RequireRole("jurnal")(roleChecker)
 
-	router := internal.NewRouter(authHnd, userHnd, beritaHnd, pklHnd, aiHnd, authMw, roleMw, roleChecker)
+	router := internal.NewRouter(authHnd, userHnd, beritaHnd, pklHnd, chatHnd, matchHnd, authMw, roleMw, roleChecker)
 	server := httptest.NewServer(router)
 
 	testEnv = &env{server: server, pool: pool, store: store, verifyS3: verifyS3}

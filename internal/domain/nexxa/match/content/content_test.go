@@ -1,4 +1,4 @@
-package ai
+package content
 
 import (
 	"encoding/json"
@@ -6,15 +6,6 @@ import (
 	"strings"
 	"testing"
 )
-
-func mustJSON(t *testing.T, v any) []byte {
-	t.Helper()
-	b, err := json.Marshal(v)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	return b
-}
 
 func rawInput(answers ...any) map[string]json.RawMessage {
 	raw := map[string]json.RawMessage{}
@@ -33,10 +24,19 @@ func validRawAnswers() map[string]json.RawMessage {
 	return rawInput("satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan")
 }
 
+func mustJSON(t *testing.T, v any) string {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	return string(b)
+}
+
 func TestValidateNexxaInput(t *testing.T) {
 	t.Run("success sanitizes and returns all answers", func(t *testing.T) {
 		raw := validRawAnswers()
-		out, errs := validateNexxaInput(raw)
+		out, errs := ValidateNexxaInput(raw)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -56,7 +56,7 @@ func TestValidateNexxaInput(t *testing.T) {
 			"jawaban_1": json.RawMessage(`"a"`),
 			"jawaban_2": json.RawMessage(`"b"`),
 		}
-		_, errs := validateNexxaInput(raw)
+		_, errs := ValidateNexxaInput(raw)
 		if len(errs) != 6 {
 			t.Fatalf("expected 6 errors, got %d: %+v", len(errs), errs)
 		}
@@ -74,7 +74,7 @@ func TestValidateNexxaInput(t *testing.T) {
 	t.Run("whitespace-only field rejected as required", func(t *testing.T) {
 		raw := validRawAnswers()
 		raw["jawaban_4"] = json.RawMessage(`"   "`)
-		_, errs := validateNexxaInput(raw)
+		_, errs := ValidateNexxaInput(raw)
 		if len(errs) != 1 {
 			t.Fatalf("expected 1 error, got %d: %+v", len(errs), errs)
 		}
@@ -86,7 +86,7 @@ func TestValidateNexxaInput(t *testing.T) {
 	t.Run("oversized field rejected without truncation", func(t *testing.T) {
 		raw := validRawAnswers()
 		raw["jawaban_6"] = json.RawMessage(mustJSON(t, strings.Repeat("a", NexxaAnswerMaxLen+1)))
-		_, errs := validateNexxaInput(raw)
+		_, errs := ValidateNexxaInput(raw)
 		if len(errs) != 1 {
 			t.Fatalf("expected 1 error, got %d: %+v", len(errs), errs)
 		}
@@ -98,7 +98,7 @@ func TestValidateNexxaInput(t *testing.T) {
 	t.Run("exactly max length accepted", func(t *testing.T) {
 		raw := validRawAnswers()
 		raw["jawaban_6"] = json.RawMessage(mustJSON(t, strings.Repeat("a", NexxaAnswerMaxLen)))
-		_, errs := validateNexxaInput(raw)
+		_, errs := ValidateNexxaInput(raw)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -108,7 +108,7 @@ func TestValidateNexxaInput(t *testing.T) {
 		for _, bad := range []any{map[string]any{"x": 1}, []string{"a"}, 42, true} {
 			raw := validRawAnswers()
 			raw["jawaban_3"] = json.RawMessage(mustJSON(t, bad))
-			_, errs := validateNexxaInput(raw)
+			_, errs := ValidateNexxaInput(raw)
 			if len(errs) != 1 {
 				t.Fatalf("value %v: expected 1 error, got %d: %+v", bad, len(errs), errs)
 			}
@@ -122,7 +122,7 @@ func TestValidateNexxaInput(t *testing.T) {
 		raw := validRawAnswers()
 		raw["jawaban_1"] = json.RawMessage(`"<p>Saya <b>suka</b> komputer</p>"`)
 		raw["jawaban_2"] = json.RawMessage(`"<script>alert('x')</script>saya tenang"`)
-		out, errs := validateNexxaInput(raw)
+		out, errs := ValidateNexxaInput(raw)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -137,7 +137,7 @@ func TestValidateNexxaInput(t *testing.T) {
 	t.Run("collapses repeated whitespace", func(t *testing.T) {
 		raw := validRawAnswers()
 		raw["jawaban_1"] = json.RawMessage(`"  a\t\tb\n\n   c  "`)
-		out, errs := validateNexxaInput(raw)
+		out, errs := ValidateNexxaInput(raw)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -149,7 +149,7 @@ func TestValidateNexxaInput(t *testing.T) {
 	t.Run("trims surrounding whitespace", func(t *testing.T) {
 		raw := validRawAnswers()
 		raw["jawaban_1"] = json.RawMessage(`"   halo dunia   "`)
-		out, errs := validateNexxaInput(raw)
+		out, errs := ValidateNexxaInput(raw)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -165,11 +165,11 @@ func TestValidateNexxaInput(t *testing.T) {
 			"you are now pemimpin",
 		}
 		for _, in := range flagged {
-			if !hasPromptInjection(in) {
+			if !HasPromptInjection(in) {
 				t.Errorf("expected prompt injection flag for %q", in)
 			}
 		}
-		if hasPromptInjection("saya suka belajar komputer") {
+		if HasPromptInjection("saya suka belajar komputer") {
 			t.Error("false positive on benign text")
 		}
 	})
@@ -179,7 +179,7 @@ func TestNormalizeNexxaOutput(t *testing.T) {
 	wellFormed := `{"nama_jurusan":"PPLG","alasan":"cocok","persentase_pplg":65,"persentase_akuntansi":20,"persentase_hotel":15}`
 
 	t.Run("well-formed ai json", func(t *testing.T) {
-		out, errs := normalizeNexxaOutput(wellFormed)
+		out, errs := NormalizeNexxaOutput(wellFormed)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -191,7 +191,7 @@ func TestNormalizeNexxaOutput(t *testing.T) {
 
 	t.Run("json wrapped in markdown fences", func(t *testing.T) {
 		raw := "```json\n" + wellFormed + "\n```"
-		out, errs := normalizeNexxaOutput(raw)
+		out, errs := NormalizeNexxaOutput(raw)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -202,7 +202,7 @@ func TestNormalizeNexxaOutput(t *testing.T) {
 
 	t.Run("stray text around json", func(t *testing.T) {
 		raw := "Berikut hasilnya:\n" + wellFormed + "\nSemoga membantu!"
-		out, errs := normalizeNexxaOutput(raw)
+		out, errs := NormalizeNexxaOutput(raw)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -212,14 +212,14 @@ func TestNormalizeNexxaOutput(t *testing.T) {
 	})
 
 	t.Run("empty raw rejected", func(t *testing.T) {
-		_, errs := normalizeNexxaOutput("   ")
+		_, errs := NormalizeNexxaOutput("   ")
 		if len(errs) != 1 || errs[0].Message != "Empty output from model." {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
 	})
 
 	t.Run("completely unparseable output", func(t *testing.T) {
-		_, errs := normalizeNexxaOutput("ini bukan json sama sekali")
+		_, errs := NormalizeNexxaOutput("ini bukan json sama sekali")
 		if len(errs) != 1 || errs[0].Message != "Could not parse a valid JSON object from model output." {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -227,7 +227,7 @@ func TestNormalizeNexxaOutput(t *testing.T) {
 
 	t.Run("invalid nama_jurusan", func(t *testing.T) {
 		raw := `{"nama_jurusan":"MIPA","alasan":"x","persentase_pplg":50,"persentase_akuntansi":25,"persentase_hotel":25}`
-		_, errs := normalizeNexxaOutput(raw)
+		_, errs := NormalizeNexxaOutput(raw)
 		if len(errs) != 1 || errs[0].Message != "Invalid nama_jurusan: MIPA." {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -236,7 +236,7 @@ func TestNormalizeNexxaOutput(t *testing.T) {
 	t.Run("normalizes close major variants", func(t *testing.T) {
 		for _, variant := range []string{"pplg", "P.P.L.G", " PPLG "} {
 			raw := `{"nama_jurusan":"` + variant + `","alasan":"x","persentase_pplg":50,"persentase_akuntansi":25,"persentase_hotel":25}`
-			out, errs := normalizeNexxaOutput(raw)
+			out, errs := NormalizeNexxaOutput(raw)
 			if len(errs) != 0 {
 				t.Fatalf("variant %q: unexpected errors: %+v", variant, errs)
 			}
@@ -246,7 +246,7 @@ func TestNormalizeNexxaOutput(t *testing.T) {
 		}
 		for _, variant := range []string{"akuntansi", "AKUNTANSI"} {
 			raw := `{"nama_jurusan":"` + variant + `","alasan":"x","persentase_pplg":25,"persentase_akuntansi":50,"persentase_hotel":25}`
-			out, errs := normalizeNexxaOutput(raw)
+			out, errs := NormalizeNexxaOutput(raw)
 			if len(errs) != 0 {
 				t.Fatalf("variant %q: unexpected errors: %+v", variant, errs)
 			}
@@ -258,7 +258,7 @@ func TestNormalizeNexxaOutput(t *testing.T) {
 
 	t.Run("missing alasan", func(t *testing.T) {
 		raw := `{"nama_jurusan":"PPLG","persentase_pplg":50,"persentase_akuntansi":25,"persentase_hotel":25}`
-		_, errs := normalizeNexxaOutput(raw)
+		_, errs := NormalizeNexxaOutput(raw)
 		if len(errs) != 1 || errs[0].Message != "Missing alasan." {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -266,7 +266,7 @@ func TestNormalizeNexxaOutput(t *testing.T) {
 
 	t.Run("percentages not summing to 100 are rescaled", func(t *testing.T) {
 		raw := `{"nama_jurusan":"PPLG","alasan":"x","persentase_pplg":70,"persentase_akuntansi":20,"persentase_hotel":20}`
-		out, errs := normalizeNexxaOutput(raw)
+		out, errs := NormalizeNexxaOutput(raw)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -278,7 +278,7 @@ func TestNormalizeNexxaOutput(t *testing.T) {
 
 	t.Run("percentages summing to zero rejected", func(t *testing.T) {
 		raw := `{"nama_jurusan":"PPLG","alasan":"x","persentase_pplg":0,"persentase_akuntansi":0,"persentase_hotel":0}`
-		_, errs := normalizeNexxaOutput(raw)
+		_, errs := NormalizeNexxaOutput(raw)
 		if len(errs) != 1 || errs[0].Message != "Percentages sum to zero." {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
@@ -286,7 +286,7 @@ func TestNormalizeNexxaOutput(t *testing.T) {
 
 	t.Run("negative percentage rejected", func(t *testing.T) {
 		raw := `{"nama_jurusan":"PPLG","alasan":"x","persentase_pplg":-5,"persentase_akuntansi":50,"persentase_hotel":50}`
-		_, errs := normalizeNexxaOutput(raw)
+		_, errs := NormalizeNexxaOutput(raw)
 		if len(errs) != 1 {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}

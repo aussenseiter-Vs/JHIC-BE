@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestE2E_AIChat(t *testing.T) {
+func TestE2E_NexxaChat(t *testing.T) {
 	e := startE2E(t)
-	url := e.server.URL + "/api/v1/ai/chat"
+	url := e.server.URL + "/api/v1/nexxa/chat"
 
 	t.Run("valid message returns n8n output", func(t *testing.T) {
 		resp := doJSON(t, http.MethodPost, url, "", map[string]string{
@@ -53,9 +53,9 @@ func TestE2E_AIChat(t *testing.T) {
 	})
 }
 
-func TestE2E_AINexxaMatch(t *testing.T) {
+func TestE2E_NexxaMatch(t *testing.T) {
 	e := startE2E(t)
-	url := e.server.URL + "/api/v1/ai/nexxa-match"
+	url := e.server.URL + "/api/v1/nexxa/match"
 
 	valid := map[string]string{
 		"jawaban_1": "a", "jawaban_2": "b", "jawaban_3": "c", "jawaban_4": "d",
@@ -101,7 +101,7 @@ func TestE2E_AINexxaMatch(t *testing.T) {
 
 func TestE2E_NexxaValidateInput(t *testing.T) {
 	e := startE2E(t)
-	url := e.server.URL + "/api/v1/ai/nexxa-match/validate-input"
+	url := e.server.URL + "/api/v1/nexxa/match/validate-input"
 
 	valid := map[string]string{
 		"jawaban_1": "satu", "jawaban_2": "dua", "jawaban_3": "tiga", "jawaban_4": "empat",
@@ -207,7 +207,7 @@ func TestE2E_NexxaValidateInput(t *testing.T) {
 
 func TestE2E_NexxaNormalizeOutput(t *testing.T) {
 	e := startE2E(t)
-	url := e.server.URL + "/api/v1/ai/nexxa-match/normalize-output"
+	url := e.server.URL + "/api/v1/nexxa/match/normalize-output"
 
 	wellFormed := `{"nama_jurusan":"PPLG","alasan":"cocok","persentase_pplg":65,"persentase_akuntansi":20,"persentase_hotel":15}`
 

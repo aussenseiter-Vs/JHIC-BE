@@ -1,4 +1,4 @@
-package ai
+package content
 
 import (
 	"encoding/json"
@@ -9,6 +9,24 @@ import (
 	"strconv"
 	"strings"
 )
+
+const (
+	NexxaAnswerCount  = 8
+	NexxaAnswerMaxLen = 500
+)
+
+type APIError struct {
+	Field   string `json:"field,omitempty"`
+	Message string `json:"message"`
+}
+
+type NormalizeOutputData struct {
+	NamaJurusan         string `json:"nama_jurusan"`
+	Alasan              string `json:"alasan"`
+	PersentasePPLG      int    `json:"persentase_pplg"`
+	PersentaseAkuntansi int    `json:"persentase_akuntansi"`
+	PersentaseHotel     int    `json:"persentase_hotel"`
+}
 
 var (
 	scriptBlockRe = regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
@@ -28,7 +46,7 @@ func sanitizeAnswer(s string) string {
 	return strings.TrimSpace(s)
 }
 
-func hasPromptInjection(s string) bool {
+func HasPromptInjection(s string) bool {
 	return injectionRe.MatchString(s)
 }
 
@@ -41,7 +59,7 @@ func sanitizeForLog(s string) string {
 	return s
 }
 
-func validateNexxaInput(raw map[string]json.RawMessage) (map[string]string, []APIError) {
+func ValidateNexxaInput(raw map[string]json.RawMessage) (map[string]string, []APIError) {
 	var errs []APIError
 	out := make(map[string]string, NexxaAnswerCount)
 	for i := 1; i <= NexxaAnswerCount; i++ {
@@ -130,7 +148,7 @@ func extractPercent(obj map[string]json.RawMessage, key string) (float64, bool) 
 	return 0, false
 }
 
-func normalizeNexxaOutput(raw string) (*NormalizeOutputData, []APIError) {
+func NormalizeNexxaOutput(raw string) (*NormalizeOutputData, []APIError) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, []APIError{{Message: "Empty output from model."}}
 	}

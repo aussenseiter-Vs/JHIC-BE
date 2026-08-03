@@ -1,4 +1,4 @@
-package ai
+package match
 
 import (
 	"bytes"
@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/match/content"
 )
 
 func newTestHandler(t *testing.T) *Handler {
@@ -20,9 +22,11 @@ func doPost(t *testing.T, h *Handler, path string, body string) *httptest.Respon
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	switch path {
-	case "/api/v1/ai/nexxa-match/validate-input":
+	case "/api/v1/nexxa/match":
+		h.NexxaMatch(rr, req)
+	case "/api/v1/nexxa/match/validate-input":
 		h.ValidateNexxaInput(rr, req)
-	case "/api/v1/ai/nexxa-match/normalize-output":
+	case "/api/v1/nexxa/match/normalize-output":
 		h.NormalizeNexxaOutput(rr, req)
 	default:
 		t.Fatalf("unknown path %q", path)
@@ -30,12 +34,12 @@ func doPost(t *testing.T, h *Handler, path string, body string) *httptest.Respon
 	return rr
 }
 
-func decodeEnvelope(t *testing.T, rr *httptest.ResponseRecorder) (success bool, data map[string]json.RawMessage, errs []APIError) {
+func decodeEnvelope(t *testing.T, rr *httptest.ResponseRecorder) (success bool, data map[string]json.RawMessage, errs []content.APIError) {
 	t.Helper()
 	var env struct {
 		Success bool                       `json:"success"`
 		Data    map[string]json.RawMessage `json:"data"`
-		Errors  []APIError                 `json:"errors"`
+		Errors  []content.APIError         `json:"errors"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &env); err != nil {
 		t.Fatalf("decode response: %v (body=%s)", err, rr.Body.String())
@@ -45,7 +49,7 @@ func decodeEnvelope(t *testing.T, rr *httptest.ResponseRecorder) (success bool, 
 
 func TestValidateNexxaInputHandler(t *testing.T) {
 	h := newTestHandler(t)
-	path := "/api/v1/ai/nexxa-match/validate-input"
+	path := "/api/v1/nexxa/match/validate-input"
 	validBody := `{
 		"jawaban_1": "satu", "jawaban_2": "dua", "jawaban_3": "tiga", "jawaban_4": "empat",
 		"jawaban_5": "lima", "jawaban_6": "enam", "jawaban_7": "tujuh", "jawaban_8": "delapan"
@@ -63,8 +67,8 @@ func TestValidateNexxaInputHandler(t *testing.T) {
 		if len(errs) != 0 {
 			t.Fatalf("unexpected errors: %+v", errs)
 		}
-		if len(data) != NexxaAnswerCount {
-			t.Fatalf("expected %d data fields, got %d", NexxaAnswerCount, len(data))
+		if len(data) != content.NexxaAnswerCount {
+			t.Fatalf("expected %d data fields, got %d", content.NexxaAnswerCount, len(data))
 		}
 		if string(data["jawaban_1"]) != `"satu"` {
 			t.Fatalf("unexpected jawaban_1: %s", data["jawaban_1"])
@@ -102,7 +106,7 @@ func TestValidateNexxaInputHandler(t *testing.T) {
 
 func TestNormalizeNexxaOutputHandler(t *testing.T) {
 	h := newTestHandler(t)
-	path := "/api/v1/ai/nexxa-match/normalize-output"
+	path := "/api/v1/nexxa/match/normalize-output"
 	wellFormed := `{"nama_jurusan":"PPLG","alasan":"cocok","persentase_pplg":65,"persentase_akuntansi":20,"persentase_hotel":15}`
 
 	t.Run("success returns 200 with data", func(t *testing.T) {
@@ -167,4 +171,13 @@ func TestNormalizeNexxaOutputHandler(t *testing.T) {
 			t.Fatalf("expected 200, got %d (body=%s)", rr.Code, rr.Body.String())
 		}
 	})
+}
+
+func mustJSON(t *testing.T, v any) []byte {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	return b
 }
