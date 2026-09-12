@@ -19,6 +19,7 @@ import (
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/berita"
 	beritapg "github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/berita/pg"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/chat"
+	chatpg "github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/chat/pg"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/cvreview"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/match"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/pkl"
@@ -26,10 +27,11 @@ import (
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/user"
 	userpg "github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/user/pg"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/database"
+	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/llm"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/middleware"
-	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/n8n"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/storage"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/pkg/id"
+	"github.com/aussenseiter-VsRB/JHIC-BE/internal/testhelpers/vectorpg"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -38,7 +40,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/minio"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
 const (
@@ -59,12 +60,7 @@ var testEnv *env
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
-	pgContainer, err := postgres.Run(ctx, "postgres:16-alpine",
-		postgres.WithDatabase("jhic"),
-		postgres.WithUsername("jhic"),
-		postgres.WithPassword("jhic"),
-		postgres.BasicWaitStrategies(),
-	)
+	pgContainer, err := vectorpg.Run(ctx)
 	if err != nil {
 		fmt.Printf("start postgres container: %v\n", err)
 		os.Exit(1)
@@ -153,34 +149,60 @@ func TestMain(m *testing.M) {
 	pklSvc := pkl.NewService(pklRepo, userRepo)
 	pklHnd := pkl.NewHandler(pklSvc)
 
-	n8nStub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	const matchStubOutput = `{"nama_jurusan":"PPLG","alasan":"cocok","persentase_pplg":60,"persentase_akuntansi":30,"persentase_hotel":10}`
+
+	llmStub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
-		case "/chat":
-			json.NewEncoder(w).Encode(map[string]string{"output": "hai dari nexxa"})
-		case "/nexxa":
-			w.Write([]byte(`{"nama_jurusan":"PPLG","alasan":"cocok","persentase_pplg":60,"persentase_akuntansi":30,"persentase_hotel":10}`))
-		case "/cv-review":
-			w.Write([]byte(cvReviewStubOutput))
+		case "/v1/chat/completions":
+			var req struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			user := ""
+			for _, m := range req.Messages {
+				if m.Content != "" {
+					user = m.Content
+				}
+			}
+			content := "hai dari nexxa"
+			switch {
+			case strings.Contains(user, "<!-- CV START -->"):
+				content = cvReviewStubOutput
+			case strings.Contains(user, "jawaban_"):
+				content = matchStubOutput
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"choices": []map[string]any{{"message": map[string]any{"content": content}}},
+			})
+		case "/v1/embeddings":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{{"embedding": make([]float32, 384)}},
+			})
 		default:
 			http.NotFound(w, r)
 		}
 	}))
-	n8nClient := n8n.NewClient(n8n.Config{
-		BaseURL:   n8nStub.URL,
-		ChatPath:  "/chat",
-		NexxaPath: "/nexxa",
-		CvPath:    "/cv-review",
-		Timeout:   5 * time.Second,
+	llmClient := llm.NewClient(llm.Config{
+		BaseURL:    llmStub.URL + "/v1",
+		Model:      "test-model",
+		Timeout:    5 * time.Second,
+		EmbedModel: "test-embed",
 	})
-	chatSvc := chat.NewService(n8nClient)
+	chatSvc := chat.NewService(llmClient).
+		WithRetrieval(chatpg.NewRepository(pool), llmClient, 5)
 	chatHnd := chat.NewHandler(chatSvc, middleware.RateLimit(1000))
-	matchSvc := match.NewService(n8nClient)
+	matchSvc := match.NewService(llmClient)
 	matchHnd := match.NewHandler(matchSvc, middleware.RateLimit(1000))
 
 	tokenValidator := middleware.TokenValidator(auth.NewTokenValidator(sessionsRepo))
 	authMw := middleware.Auth(tokenValidator)
-	cvSvc := cvreview.NewService(n8nClient)
+	cvSvc := cvreview.NewService(llmClient)
 	cvHnd := cvreview.NewHandler(cvSvc, authMw, middleware.RateLimit(1000))
 	roleChecker := func(ctx context.Context, userID id.ID) (string, error) {
 		u, err := userSvc.ByID(ctx, userID)
@@ -201,7 +223,7 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 	server.Close()
-	n8nStub.Close()
+	llmStub.Close()
 	pool.Close()
 	_ = pgContainer.Terminate(ctx)
 	_ = minioContainer.Terminate(ctx)
@@ -210,7 +232,7 @@ func TestMain(m *testing.M) {
 
 func startE2E(t *testing.T) *env {
 	t.Helper()
-	_, err := testEnv.pool.Exec(context.Background(), `TRUNCATE pkl_approval_steps, pkl_requests, sessions, berita, users CASCADE`)
+	_, err := testEnv.pool.Exec(context.Background(), `TRUNCATE pkl_approval_steps, pkl_requests, sessions, berita, users, kb_chunks, kb_documents CASCADE`)
 	require.NoError(t, err)
 	return testEnv
 }

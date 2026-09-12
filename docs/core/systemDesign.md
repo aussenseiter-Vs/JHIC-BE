@@ -46,11 +46,12 @@ internal/
 │   ├── auth/
 │   ├── user/
 │   ├── berita/
-│   └── ai/                  — n8n webhook proxy (no database)
+│   └── ai/                  — AI (LLM completions + RAG knowledge base)
 ├── infrastructure/          — Shared infrastructure
 │   ├── database/            — pgxpool connection, migration runner
 │   ├── middleware/          — CORS, logging, auth, role, rate limit
-│   ├── n8n/                 — n8n webhook HTTP client
+│   ├── llm/                 — OpenAI-compatible chat completions + embeddings client
+│   ├── knowledge/           — markdown chunker + KB seeder (pgvector)
 │   ├── response/            — JSON response helpers
 │   └── storage/             — S3-compatible storage (Backblaze B2 / MinIO)
 ├── pkg/id/                  — Snowflake ID generator (stdlib only)

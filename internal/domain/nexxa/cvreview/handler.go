@@ -51,9 +51,9 @@ func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrCvTextRequired), errors.Is(err, ErrCvTextTooLong), errors.Is(err, ErrInvalidCounts):
 		response.Error(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, nexxa.ErrN8NTimeout):
+	case errors.Is(err, nexxa.ErrUpstreamTimeout):
 		response.Error(w, http.StatusGatewayTimeout, err.Error())
-	case errors.Is(err, nexxa.ErrN8NUnavailable):
+	case errors.Is(err, nexxa.ErrUpstreamUnavailable):
 		response.Error(w, http.StatusBadGateway, err.Error())
 	case errors.Is(err, ErrCvOutputInvalid):
 		response.Error(w, http.StatusUnprocessableEntity, err.Error())

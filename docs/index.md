@@ -24,7 +24,7 @@ docs/
     ├── auth/               — Auth domain documentation
     ├── user/               — User domain documentation
     ├── berita/             — Berita (news) domain documentation
-    └── ai/                 — AI (n8n webhook proxy) domain documentation
+    └── ai/                 — AI (LLM + RAG) domain documentation
 ```
 
 ## Section-specific rules

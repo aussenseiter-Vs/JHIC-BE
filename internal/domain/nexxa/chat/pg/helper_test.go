@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/database"
-	"github.com/aussenseiter-VsRB/JHIC-BE/internal/pkg/id"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/testhelpers/vectorpg"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
@@ -38,7 +37,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	if err := database.RunMigrations(ctx, testPool, "../../../../cmd/server/migrations"); err != nil {
+	if err := database.RunMigrations(ctx, testPool, "../../../../../cmd/server/migrations"); err != nil {
 		fmt.Printf("migrations: %v\n", err)
 		os.Exit(1)
 	}
@@ -51,17 +50,7 @@ func TestMain(m *testing.M) {
 
 func startPostgres(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	_, err := testPool.Exec(context.Background(), `TRUNCATE sessions, berita, users CASCADE`)
+	_, err := testPool.Exec(context.Background(), `TRUNCATE kb_chunks, kb_documents CASCADE`)
 	require.NoError(t, err)
 	return testPool
-}
-
-func seedUser(t *testing.T, id id.ID, email string) {
-	t.Helper()
-	_, err := testPool.Exec(context.Background(),
-		`INSERT INTO users (id, email, password_hash, name, role, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
-		int64(id), email, "hash", "Seed", "user",
-	)
-	require.NoError(t, err)
 }

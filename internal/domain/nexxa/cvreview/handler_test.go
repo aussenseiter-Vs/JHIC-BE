@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTestHandler(t *testing.T, client nexxa.N8NClient) *Handler {
+func newTestHandler(t *testing.T, client nexxa.AIClient) *Handler {
 	t.Helper()
 	svc := NewService(client)
 	return NewHandler(svc, nil, nil)
@@ -60,8 +60,8 @@ const wellFormedCvOutput = `{
 
 func TestCvReviewHandler(t *testing.T) {
 	t.Run("success returns 200 with normalized data", func(t *testing.T) {
-		client := mocks.NewN8NClient(t)
-		client.On("CvReview", mock.Anything, "CV saya", 3, 1).Return(wellFormedCvOutput, nil)
+		client := mocks.NewAIClient(t)
+		client.On("Complete", mock.Anything, mock.Anything, true).Return(wellFormedCvOutput, nil)
 		h := newTestHandler(t, client)
 
 		rr := doPost(t, h, "/api/v1/nexxa/cv-review", `{"cv_text":"CV saya","word_count":3,"page_count":1}`)
@@ -76,30 +76,30 @@ func TestCvReviewHandler(t *testing.T) {
 	})
 
 	t.Run("empty cv_text returns 400", func(t *testing.T) {
-		client := mocks.NewN8NClient(t)
+		client := mocks.NewAIClient(t)
 		h := newTestHandler(t, client)
 		rr := doPost(t, h, "/api/v1/nexxa/cv-review", `{"cv_text":"  "}`)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 	})
 
 	t.Run("upstream unavailable returns 502", func(t *testing.T) {
-		client := mocks.NewN8NClient(t)
-		client.On("CvReview", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("", nexxa.ErrN8NUnavailable)
+		client := mocks.NewAIClient(t)
+		client.On("Complete", mock.Anything, mock.Anything, true).Return("", nexxa.ErrUpstreamUnavailable)
 		h := newTestHandler(t, client)
 		rr := doPost(t, h, "/api/v1/nexxa/cv-review", `{"cv_text":"cv"}`)
 		require.Equal(t, http.StatusBadGateway, rr.Code)
 	})
 
 	t.Run("invalid ai output returns 422", func(t *testing.T) {
-		client := mocks.NewN8NClient(t)
-		client.On("CvReview", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("bukan json", nil)
+		client := mocks.NewAIClient(t)
+		client.On("Complete", mock.Anything, mock.Anything, true).Return("bukan json", nil)
 		h := newTestHandler(t, client)
 		rr := doPost(t, h, "/api/v1/nexxa/cv-review", `{"cv_text":"cv"}`)
 		require.Equal(t, http.StatusUnprocessableEntity, rr.Code)
 	})
 
 	t.Run("malformed body returns 400", func(t *testing.T) {
-		client := mocks.NewN8NClient(t)
+		client := mocks.NewAIClient(t)
 		h := newTestHandler(t, client)
 		rr := doPost(t, h, "/api/v1/nexxa/cv-review", `{"cv_text":`)
 		require.Equal(t, http.StatusBadRequest, rr.Code)

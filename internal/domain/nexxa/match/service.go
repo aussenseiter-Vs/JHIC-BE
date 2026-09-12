@@ -11,10 +11,10 @@ import (
 )
 
 type Service struct {
-	client nexxa.N8NClient
+	client nexxa.AIClient
 }
 
-func NewService(client nexxa.N8NClient) *Service {
+func NewService(client nexxa.AIClient) *Service {
 	return &Service{client: client}
 }
 
@@ -34,7 +34,7 @@ func (s *Service) NexxaMatch(ctx context.Context, answers []string) (*NexxaRespo
 		normalized[i] = a
 	}
 
-	raw, err := s.client.NexxaMatch(ctx, normalized)
+	raw, err := s.client.Complete(ctx, MatchMessages(normalized), true)
 	if err != nil {
 		return nil, err
 	}

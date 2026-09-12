@@ -66,9 +66,9 @@ func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrAnswersRequired), errors.Is(err, ErrAnswerTooLong):
 		response.Error(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, nexxa.ErrN8NTimeout):
+	case errors.Is(err, nexxa.ErrUpstreamTimeout):
 		response.Error(w, http.StatusGatewayTimeout, err.Error())
-	case errors.Is(err, nexxa.ErrN8NUnavailable):
+	case errors.Is(err, nexxa.ErrUpstreamUnavailable):
 		response.Error(w, http.StatusBadGateway, err.Error())
 	case errors.Is(err, ErrNexxaOutputInvalid):
 		response.Error(w, http.StatusUnprocessableEntity, err.Error())

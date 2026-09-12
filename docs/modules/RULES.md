@@ -71,7 +71,7 @@ Rules for sub-domains:
 - DI wiring in `cmd/server/main.go` constructs each sub-domain's service and handler independently.
 - Shared mocks (for the parent's shared interface) live in the parent's `mocks/` directory.
 
-The real implementation lives in `internal/infrastructure/{service}/` (e.g. `internal/infrastructure/n8n/`) and imports the domain package for its types. Services wrap upstream failures in the domain's sentinel errors so handlers can map them to status codes (e.g. 502/504) without leaking internal detail.
+The real implementation lives in `internal/infrastructure/{service}/` (e.g. `internal/infrastructure/llm/`) and imports the domain package for its types. Services wrap upstream failures in the domain's sentinel errors so handlers can map them to status codes (e.g. 502/504) without leaking internal detail.
 
 ## 2. File contracts
 

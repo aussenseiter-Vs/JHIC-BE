@@ -55,9 +55,9 @@ func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrChatMessageRequired), errors.Is(err, ErrChatMessageTooLong):
 		response.Error(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, nexxa.ErrN8NTimeout):
+	case errors.Is(err, nexxa.ErrUpstreamTimeout):
 		response.Error(w, http.StatusGatewayTimeout, err.Error())
-	case errors.Is(err, nexxa.ErrN8NUnavailable):
+	case errors.Is(err, nexxa.ErrUpstreamUnavailable):
 		response.Error(w, http.StatusBadGateway, err.Error())
 	default:
 		response.Error(w, http.StatusInternalServerError, "internal server error")

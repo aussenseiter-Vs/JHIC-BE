@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS kb_chunks;
+DROP TABLE IF EXISTS kb_documents;
+DROP EXTENSION IF EXISTS vector;

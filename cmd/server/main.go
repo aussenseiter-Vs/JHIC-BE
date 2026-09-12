@@ -20,6 +20,7 @@ import (
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/berita"
 	beritapg "github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/berita/pg"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/chat"
+	chatpg "github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/chat/pg"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/cvreview"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/match"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/pkl"
@@ -27,8 +28,9 @@ import (
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/user"
 	userpg "github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/user/pg"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/database"
+	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/knowledge"
+	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/llm"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/middleware"
-	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/n8n"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/storage"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/pkg/id"
 	"github.com/joho/godotenv"
@@ -89,24 +91,47 @@ func main() {
 	pklSvc := pkl.NewService(pklRepo, userRepo)
 	pklHnd := pkl.NewHandler(pklSvc)
 
-	n8nClient := n8n.NewClient(n8n.Config{
-		BaseURL:       cfg.N8NBaseURL,
-		ChatPath:      cfg.N8NChatPath,
-		ChatUsername:  cfg.N8NChatUsername,
-		ChatPassword:  cfg.N8NChatPassword,
-		WebhookSecret: cfg.N8NWebhookSecret,
-		NexxaPath:     cfg.N8NNexxaPath,
-		CvPath:        cfg.N8NCvPath,
-		Timeout:       cfg.N8NTimeout,
+	if cfg.LLMBaseURL == "" {
+		log.Fatalf("llm: LLM_BASE_URL must be set (see .env.example)")
+	}
+
+	llmClient := llm.NewClient(llm.Config{
+		BaseURL:    cfg.LLMBaseURL,
+		APIKey:     cfg.LLMAPIKey,
+		Model:      cfg.LLMModel,
+		Timeout:    cfg.LLMTimeout,
+		MaxTokens:  cfg.LLMMaxTokens,
+		EmbedURL:   cfg.LLMEmbedURL,
+		EmbedModel: cfg.LLMEmbedModel,
 	})
-	chatSvc := chat.NewService(n8nClient)
+	kbRepo := chatpg.NewRepository(pool)
+	chatSvc := chat.NewService(llmClient).
+		WithRetrieval(kbRepo, llmClient, cfg.KBMaxResults).
+		WithMemory(cfg.ChatHistoryMax, cfg.ChatHistoryTTL)
 	chatHnd := chat.NewHandler(chatSvc, middleware.RateLimit(cfg.AIRateLimit), analyticsSvc)
-	matchSvc := match.NewService(n8nClient)
+	matchSvc := match.NewService(llmClient)
 	matchHnd := match.NewHandler(matchSvc, middleware.RateLimit(cfg.AIRateLimit), analyticsSvc)
+
+	if cfg.KBAutoSeed {
+		go func() {
+			seedCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			count, err := knowledge.Count(seedCtx, pool)
+			if err != nil || count > 0 {
+				return
+			}
+			if err := knowledge.Seed(seedCtx, pool, knowledge.Config{
+				Dir:      cfg.KBBaseDir,
+				Embedder: llmClient,
+			}); err != nil {
+				log.Printf("kb auto-seed: %v", err)
+			}
+		}()
+	}
 
 	tokenValidator := middleware.TokenValidator(auth.NewTokenValidator(sessionsRepo))
 	authMw := middleware.Auth(tokenValidator)
-	cvSvc := cvreview.NewService(n8nClient)
+	cvSvc := cvreview.NewService(llmClient)
 	cvHnd := cvreview.NewHandler(cvSvc, authMw, middleware.RateLimit(cfg.AIRateLimit))
 	roleCheck := userSvc.ByID
 	roleChecker := func(ctx context.Context, userID id.ID) (string, error) {

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/cvreview"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/cvreview/content"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/nexxa/mocks"
@@ -28,9 +29,16 @@ const validCvJSON = `{
 }`
 
 func TestService_CvReview(t *testing.T) {
-	t.Run("success forwards and normalizes", func(t *testing.T) {
-		client := mocks.NewN8NClient(t)
-		client.On("CvReview", mock.Anything, "CV saya", 5, 1).Return(validCvJSON, nil)
+	t.Run("success sends sanitized CV with json mode", func(t *testing.T) {
+		client := mocks.NewAIClient(t)
+		client.On("Complete", mock.Anything, mock.MatchedBy(func(msgs []nexxa.Message) bool {
+			if len(msgs) != 2 || msgs[0].Role != "system" || msgs[1].Role != "user" {
+				return false
+			}
+			return strings.Contains(msgs[1].Content, "CV saya") &&
+				strings.Contains(msgs[1].Content, "word_count: 5") &&
+				strings.Contains(msgs[1].Content, "page_count: 1")
+		}), true).Return(validCvJSON, nil)
 
 		svc := cvreview.NewService(client)
 		got, err := svc.CvReview(context.Background(), cvreview.CvReviewRequest{
@@ -44,14 +52,14 @@ func TestService_CvReview(t *testing.T) {
 	})
 
 	t.Run("empty cv_text rejected before upstream call", func(t *testing.T) {
-		client := mocks.NewN8NClient(t)
+		client := mocks.NewAIClient(t)
 		svc := cvreview.NewService(client)
 		_, err := svc.CvReview(context.Background(), cvreview.CvReviewRequest{CvText: "   "})
 		require.ErrorIs(t, err, cvreview.ErrCvTextRequired)
 	})
 
 	t.Run("overlong cv_text rejected", func(t *testing.T) {
-		client := mocks.NewN8NClient(t)
+		client := mocks.NewAIClient(t)
 		svc := cvreview.NewService(client)
 		_, err := svc.CvReview(context.Background(), cvreview.CvReviewRequest{
 			CvText: strings.Repeat("a", content.CvTextMaxLen+1),
@@ -60,7 +68,7 @@ func TestService_CvReview(t *testing.T) {
 	})
 
 	t.Run("negative counts rejected", func(t *testing.T) {
-		client := mocks.NewN8NClient(t)
+		client := mocks.NewAIClient(t)
 		svc := cvreview.NewService(client)
 		_, err := svc.CvReview(context.Background(), cvreview.CvReviewRequest{
 			CvText:    "cv",
@@ -70,11 +78,20 @@ func TestService_CvReview(t *testing.T) {
 	})
 
 	t.Run("invalid model output rejected", func(t *testing.T) {
-		client := mocks.NewN8NClient(t)
-		client.On("CvReview", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("bukan json", nil)
+		client := mocks.NewAIClient(t)
+		client.On("Complete", mock.Anything, mock.Anything, true).Return("bukan json", nil)
 
 		svc := cvreview.NewService(client)
 		_, err := svc.CvReview(context.Background(), cvreview.CvReviewRequest{CvText: "cv"})
 		require.ErrorIs(t, err, cvreview.ErrCvOutputInvalid)
+	})
+
+	t.Run("propagates upstream error", func(t *testing.T) {
+		client := mocks.NewAIClient(t)
+		client.On("Complete", mock.Anything, mock.Anything, true).Return("", nexxa.ErrUpstreamUnavailable)
+
+		svc := cvreview.NewService(client)
+		_, err := svc.CvReview(context.Background(), cvreview.CvReviewRequest{CvText: "cv"})
+		require.ErrorIs(t, err, nexxa.ErrUpstreamUnavailable)
 	})
 }

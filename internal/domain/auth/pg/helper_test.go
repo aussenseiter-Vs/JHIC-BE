@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/database"
+	"github.com/aussenseiter-VsRB/JHIC-BE/internal/testhelpers/vectorpg"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
 var testPool *pgxpool.Pool
@@ -19,12 +19,7 @@ var testPool *pgxpool.Pool
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
-	container, err := postgres.Run(ctx, "postgres:16-alpine",
-		postgres.WithDatabase("jhic"),
-		postgres.WithUsername("jhic"),
-		postgres.WithPassword("jhic"),
-		postgres.BasicWaitStrategies(),
-	)
+	container, err := vectorpg.Run(ctx)
 	if err != nil {
 		fmt.Printf("start postgres container: %v\n", err)
 		os.Exit(1)

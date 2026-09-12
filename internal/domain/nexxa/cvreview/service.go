@@ -11,10 +11,10 @@ import (
 )
 
 type Service struct {
-	client nexxa.N8NClient
+	client nexxa.AIClient
 }
 
-func NewService(client nexxa.N8NClient) *Service {
+func NewService(client nexxa.AIClient) *Service {
 	return &Service{client: client}
 }
 
@@ -30,7 +30,7 @@ func (s *Service) CvReview(ctx context.Context, req CvReviewRequest) (*content.N
 		return nil, ErrInvalidCounts
 	}
 
-	raw, err := s.client.CvReview(ctx, cvText, req.WordCount, req.PageCount)
+	raw, err := s.client.Complete(ctx, CvReviewMessages(cvText, req.WordCount, req.PageCount), true)
 	if err != nil {
 		return nil, err
 	}

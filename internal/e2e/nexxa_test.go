@@ -15,7 +15,7 @@ func TestE2E_NexxaChat(t *testing.T) {
 	e := startE2E(t)
 	url := e.server.URL + "/api/v1/nexxa/chat"
 
-	t.Run("valid message returns n8n output", func(t *testing.T) {
+	t.Run("valid message returns llm output", func(t *testing.T) {
 		resp := doJSON(t, http.MethodPost, url, "", map[string]string{
 			"chatInput": "halo",
 			"sessionId": "session-1",

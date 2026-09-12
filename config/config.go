@@ -17,15 +17,22 @@ type Config struct {
 	B2Bucket          string
 	B2Region          string
 
-	N8NBaseURL       string
-	N8NChatPath      string
-	N8NChatUsername  string
-	N8NChatPassword  string
-	N8NWebhookSecret string
-	N8NNexxaPath     string
-	N8NCvPath        string
-	N8NTimeout       time.Duration
-	AIRateLimit      int
+	LLMBaseURL    string
+	LLMAPIKey     string
+	LLMModel      string
+	LLMTimeout    time.Duration
+	LLMMaxTokens  int
+	LLMEmbedURL   string
+	LLMEmbedModel string
+
+	KBBaseDir    string
+	KBMaxResults int
+	KBAutoSeed   bool
+
+	ChatHistoryMax int
+	ChatHistoryTTL time.Duration
+
+	AIRateLimit int
 }
 
 func Load() *Config {
@@ -33,37 +40,46 @@ func Load() *Config {
 	if port == 0 {
 		port = 8080
 	}
-	timeout, _ := strconv.Atoi(os.Getenv("N8N_TIMEOUT"))
-	if timeout == 0 {
-		timeout = 115
+	origin := strings.FieldsFunc(getEnv("CORS_ALLOWED_ORIGINS", "*"), func(r rune) bool { return r == ',' })
+	for i, o := range origin {
+		origin[i] = strings.TrimSpace(o)
 	}
-	rateLimit, _ := strconv.Atoi(os.Getenv("AI_RATE_LIMIT"))
+	rateLimit, _ := strconv.Atoi(getEnv("AI_RATE_LIMIT", "10"))
 	if rateLimit == 0 {
 		rateLimit = 10
 	}
-	origins := strings.FieldsFunc(getEnv("CORS_ALLOWED_ORIGINS", "*"), func(r rune) bool { return r == ',' })
-	for i, o := range origins {
-		origins[i] = strings.TrimSpace(o)
-	}
+	llmTimeout, _ := strconv.Atoi(getEnv("LLM_TIMEOUT", "115"))
+	llmMaxTokens, _ := strconv.Atoi(getEnv("LLM_MAX_TOKENS", "1500"))
+	kbMaxResults, _ := strconv.Atoi(getEnv("KB_MAX_RESULTS", "5"))
+	chatHistoryMax, _ := strconv.Atoi(getEnv("CHAT_HISTORY_MAX", "20"))
+	chatHistoryTTL, _ := strconv.Atoi(getEnv("CHAT_HISTORY_TTL", "1800"))
+
 	return &Config{
 		Port:              port,
-		CORSAllowedOrigin: origins,
-		DatabaseURL:       getEnv("DATABASE_URL", "postgres://localhost:5432/jhic?sslmode=disable"),
+		CORSAllowedOrigin: origin,
+		DatabaseURL:       getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/jhic?sslmode=disable"),
 		B2Endpoint:        getEnv("B2_ENDPOINT", "s3.eu-central-003.backblazeb2.com"),
 		B2KeyID:           getEnv("B2_KEY_ID", ""),
 		B2AppKey:          getEnv("B2_APP_KEY", ""),
 		B2Bucket:          getEnv("B2_BUCKET", "jhic-berita-images"),
 		B2Region:          resolveB2Region(getEnv("B2_REGION", ""), getEnv("B2_ENDPOINT", "s3.eu-central-003.backblazeb2.com")),
 
-		N8NBaseURL:       getEnv("N8N_BASE_URL", "https://n8n-b0wow8osw0okkcwc0g0gog4o.dev.usbypkp.ac.id"),
-		N8NChatPath:      getEnv("N8N_CHAT_PATH", "/webhook/d1b0712b-8783-46ee-8add-5a386132f460/chat"),
-		N8NChatUsername:  getEnv("N8N_CHAT_USERNAME", ""),
-		N8NChatPassword:  getEnv("N8N_CHAT_PASSWORD", ""),
-		N8NWebhookSecret: getEnv("N8N_WEBHOOK_SECRET", ""),
-		N8NNexxaPath:     getEnv("N8N_NEXXA_PATH", "/webhook/e44f0376-40ef-42f4-980b-ec38e8390592"),
-		N8NCvPath:        getEnv("N8N_CV_PATH", ""),
-		N8NTimeout:       time.Duration(timeout) * time.Second,
-		AIRateLimit:      rateLimit,
+		LLMBaseURL:    getEnv("LLM_BASE_URL", ""),
+		LLMAPIKey:     getEnv("LLM_API_KEY", ""),
+		LLMModel:      getEnv("LLM_MODEL", "gpt-4o-mini"),
+		LLMTimeout:    time.Duration(llmTimeout) * time.Second,
+		LLMMaxTokens:  llmMaxTokens,
+		LLMEmbedURL:   getEnv("LLM_EMBED_BASE_URL", "http://localhost:8081/v1"),
+		LLMEmbedModel: getEnv("LLM_EMBED_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"),
+
+		KBBaseDir:    getEnv("KB_DIR", "kb"),
+		KBMaxResults: kbMaxResults,
+		KBAutoSeed:   getEnv("KB_AUTO_SEED", "true") == "true",
+
+		ChatHistoryMax: chatHistoryMax,
+		ChatHistoryTTL: time.Duration(chatHistoryTTL) * time.Second,
+
+		AIRateLimit: rateLimit,
 	}
 }
 
