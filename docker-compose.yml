@@ -40,10 +40,12 @@ services:
     restart: unless-stopped
     environment:
       MODEL_ID: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+      MAX_BATCH_TOKENS: 8192
+      MAX_CONCURRENT_REQUESTS: 64
     volumes:
       - tei-data:/data
-    mem_limit: 512m
-    memswap_limit: 768m
+    mem_limit: 1024m
+    memswap_limit: 1536m
 
 volumes:
   jhic-pgdata:
