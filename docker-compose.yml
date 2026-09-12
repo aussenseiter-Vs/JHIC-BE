@@ -1,0 +1,50 @@
+services:
+  api:
+    image: ghcr.io/aussenseiter-vs/jhic-be:latest
+    container_name: jhic-be
+    depends_on:
+      postgres:
+        condition: service_healthy
+      embeddings:
+        condition: service_started
+    ports:
+      - "9090:8080"
+    env_file: .env
+    restart: unless-stopped
+    mem_limit: 384m
+    memswap_limit: 512m
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: jhic-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jhic}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-jhic}
+    volumes:
+      - jhic-pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    mem_limit: 256m
+    memswap_limit: 384m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jhic} -d ${POSTGRES_DB:-jhic}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  embeddings:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
+    container_name: jhic-embeddings
+    restart: unless-stopped
+    environment:
+      MODEL_ID: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+    volumes:
+      - tei-data:/data
+    mem_limit: 512m
+    memswap_limit: 768m
+
+volumes:
+  jhic-pgdata:
+  tei-data:
