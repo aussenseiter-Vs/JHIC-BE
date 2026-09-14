@@ -9,7 +9,7 @@ type: editable
 
 ## Overview
 
-The `berita` domain handles news article CRUD and image management. Articles are authored by users with the `jurnal` role. The article `content` is plain markdown with support for multiple paragraphs, headings, lists, bold/italic, blockquotes, links, and inline images embedded in the text ("mini Google Docs"). Images are uploaded to S3-compatible storage (Backblaze B2) and served through a **read-through proxy** endpoint that never expires. Future email rendering will use the same markdown (via goldmark) — no format migration needed.
+The `berita` domain handles news article CRUD and image management. Articles are authored by users with the `jurnal` role. The article `content` is plain markdown with support for multiple paragraphs, headings, lists, bold/italic, blockquotes, links, and inline images embedded in the text ("mini Google Docs"). Images are stored as plain files on **local disk** (`STORAGE_DIR`) and served through a **read-through proxy** endpoint that never expires. Future email rendering will use the same markdown (via goldmark) — no format migration needed.
 
 ## Content format
 
@@ -52,7 +52,7 @@ Reads are **public** — listing and reading articles requires no authentication
 ### Inline image flow
 
 1. **Upload** — `POST /api/v1/berita/{id}/images` (multipart `image` field). Author-only; the article must exist. Validates MIME (jpeg/png/gif/webp) and 5 MB max. Stores the object at `berita/{id}/content/{uuid}.{ext}` and returns `{"image_url":"<object key>"}`.
-2. **Embed** — the frontend inserts that key into the markdown (`![caption](<key>)`) and saves via POST/PUT. The backend normalizes any signed URL back to a bare key on write (`normalizeImageRefs`).
+2. **Embed** — the frontend inserts that key into the markdown (`![caption](<key>)`) and saves via POST/PUT. The backend rewrites legacy bucket-prefixed signed URLs back to bare keys on write (`normalizeImageRefs`).
 3. **Read** — `Get`/`List` resolve internal `berita/...` keys to stable proxy URLs inside the returned `content` and `image_url` (`resolveImageRefs`). Each URL points at `GET /api/v1/berita/images/{key}`, which streams the object from storage on every request — so URLs never expire and long-open pages cannot go stale. External URLs pass through untouched.
 4. **Delete** — when an image is removed from the editor, the frontend calls `DELETE /api/v1/berita/{id}/images?key={key}` (and on editor teardown for uploads never embedded). The key is validated to be a bare key under `berita/{id}/content/` — it cannot target the cover image, another article's images, or arbitrary objects.
 

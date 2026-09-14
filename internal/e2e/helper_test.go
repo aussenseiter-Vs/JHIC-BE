@@ -32,27 +32,14 @@ import (
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/infrastructure/storage"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/pkg/id"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/testhelpers/vectorpg"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/minio"
-)
-
-const (
-	testBucket = "test-bucket"
-	minioUser  = "minioadmin"
-	minioPass  = "minioadmin"
 )
 
 type env struct {
-	server   *httptest.Server
-	pool     *pgxpool.Pool
-	store    storage.Client
-	verifyS3 *s3.Client
+	server *httptest.Server
+	pool   *pgxpool.Pool
+	store  storage.Client
 }
 
 var testEnv *env
@@ -83,52 +70,14 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	minioContainer, err := minio.Run(ctx, "minio/minio:latest",
-		minio.WithUsername(minioUser),
-		minio.WithPassword(minioPass),
-		testcontainers.WithTmpfs(map[string]string{"/data": "rw"}),
-	)
+	storeDir, err := os.MkdirTemp("", "jhic-e2e-store-")
 	if err != nil {
-		fmt.Printf("start minio container: %v\n", err)
+		fmt.Printf("create store dir: %v\n", err)
 		os.Exit(1)
 	}
-
-	endpoint, err := minioContainer.ConnectionString(ctx)
+	store, err := storage.NewLocalClient(storage.LocalConfig{Dir: storeDir})
 	if err != nil {
-		fmt.Printf("minio connection string: %v\n", err)
-		os.Exit(1)
-	}
-	if !strings.Contains(endpoint, "://") {
-		endpoint = "http://" + endpoint
-	}
-
-	awsCfg, err := config.LoadDefaultConfig(ctx,
-		config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-			return aws.Endpoint{URL: endpoint, HostnameImmutable: true}, nil
-		})),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(minioUser, minioPass, "")),
-		config.WithRegion("us-east-1"),
-	)
-	if err != nil {
-		fmt.Printf("aws config: %v\n", err)
-		os.Exit(1)
-	}
-	verifyS3 := s3.NewFromConfig(awsCfg)
-
-	if _, err := verifyS3.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(testBucket)}); err != nil {
-		fmt.Printf("create bucket: %v\n", err)
-		os.Exit(1)
-	}
-
-	store, err := storage.NewB2Client(ctx, storage.B2Config{
-		Endpoint: endpoint,
-		Region:   "us-east-1",
-		KeyID:    minioUser,
-		AppKey:   minioPass,
-		Bucket:   testBucket,
-	})
-	if err != nil {
-		fmt.Printf("new b2 client: %v\n", err)
+		fmt.Printf("new local client: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -219,14 +168,14 @@ func TestMain(m *testing.M) {
 	router := internal.NewRouter(authHnd, userHnd, beritaHnd, pklHnd, chatHnd, matchHnd, cvHnd, authMw, roleMw, roleChecker, []string{"*"})
 	server := httptest.NewServer(router)
 
-	testEnv = &env{server: server, pool: pool, store: store, verifyS3: verifyS3}
+	testEnv = &env{server: server, pool: pool, store: store}
 
 	code := m.Run()
 	server.Close()
 	llmStub.Close()
 	pool.Close()
 	_ = pgContainer.Terminate(ctx)
-	_ = minioContainer.Terminate(ctx)
+	os.RemoveAll(storeDir)
 	os.Exit(code)
 }
 

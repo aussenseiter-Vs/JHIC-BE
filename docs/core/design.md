@@ -55,11 +55,11 @@ type: Enforce
 
 **Rationale:** UUIDs are opaque, unorderable blobs (36 chars, no sort semantics, no embedded time), while snowflakes are 64-bit ints that are sortable, index-friendly (BIGINT beats TEXT), and embed a millisecond timestamp (41 bits since `2024-01-01` UTC) plus a node ID (10 bits, from `SNOWFLAKE_NODE_ID`, default 0) and a per-millisecond sequence (12 bits). The `sync.Mutex`-guarded generator guarantees monotonicity under concurrency, including clock-skew sleeps. Client-side generation (the same property that motivated the original UUID decision) lets services create entities and return them immediately without a round-trip to the database. IDs are marshaled to decimal strings so JavaScript clients never lose precision on values above 2^53. `created_at` is still kept on every table: it remains queryable and DB-defaulted at insert time, independent of the client-generated ID timestamp.
 
-## S3-compatible storage (2026-07-20)
+## Local-disk storage (2026-09-14)
 
-**Decision:** Use `aws-sdk-go-v2` with Backblaze B2 as the primary object store. Support MinIO for local development via Docker Compose profiles. Images are served to clients through a read-through proxy endpoint (`GET /api/v1/berita/images/{key}`) that streams the object from storage per request, so served URLs never expire.
+**Decision:** Store uploaded berita images as plain files under a local directory (`STORAGE_DIR`, default `data`) using a filesystem `storage.Client`, replacing the previous S3-compatible (Backblaze B2 / MinIO) object store. Images are served to clients through a read-through proxy endpoint (`GET /api/v1/berita/images/{key}`) that streams the file from disk per request, so served URLs never expire.
 
-**Rationale:** Backblaze B2 is S3-compatible, so the standard AWS SDK works without a custom client. The `storage.Client` interface (`Upload`, `Get`, `Delete`) keeps the storage layer swappable — swap the endpoint and credentials to point at MinIO, AWS S3, or any S3-compatible store. A proxy endpoint avoids exposing bucket credentials to clients and, unlike presigned URLs, produces stable URLs that cannot expire, so cached pages and long-open clients never break. (Presigned URLs were the initial approach; they were retired because a URL baked into stored content silently dies after the 24h TTL.)
+**Rationale:** The images are low-volume and only ever consumed by this API, so an external object store added operational overhead (credentials, region, bucket, S3 SDK) without benefit; a local directory plus the existing read-through proxy keeps the API self-contained. The `storage.Client` interface (`Upload`, `Get`, `Delete`) is unchanged, so the storage layer stays swappable if a real object store is ever needed. Files are written under `berita/{beritaID}/{uuid}.{ext}` keys, path traversal is rejected at resolve time, and content type is re-detected from the file bytes on read so the proxy can set a correct `Content-Type`. (Presigned URLs were the initial approach; they were retired because a URL baked into stored content silently dies after the 24h TTL.)
 
 ## Role-based access control (2026-07-20)
 
@@ -69,6 +69,6 @@ type: Enforce
 
 ## Image upload with server-side MIME validation (2026-07-20)
 
-**Decision:** Validate image MIME types server-side using `net/http.DetectContentType`, enforce a 5 MB max upload size via `http.MaxBytesReader`, and store images under `berita/{beritaID}/{uuid}.{ext}` paths in object storage.
+**Decision:** Validate image MIME types server-side using `net/http.DetectContentType`, enforce a 5 MB max upload size via `http.MaxBytesReader`, and store images under `berita/{beritaID}/{uuid}.{ext}` paths in local storage.
 
 **Rationale:** Client-side MIME checks are trivially bypassed. Server-side detection using the first 512 bytes (`http.DetectContentType`) matches what browsers send and prevents non-image uploads. MaxBytesReader limits memory usage and prevents abuse. The key prefix per berita groups related images together in the bucket listing.

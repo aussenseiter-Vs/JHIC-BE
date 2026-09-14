@@ -39,7 +39,7 @@ A change that spans layers (e.g. a new endpoint that validates, queries, and wri
 3. **Unit tests.** Extend or add `service_test.go` in the affected domain. Table-driven, covering the success path and **every error path** the service can return (not found, forbidden, duplicate, invalid input, repository failure). Verify call arguments with `require`/`assert` on mock expectations. No DB, no network.
 
 4. **Component integration tests.** If the change touches SQL or a third-party service, extend `pg/repository_integration_test.go` or `b2_integration_test.go`:
-   - Use the package's shared container helper (`startPostgres`, or the MinIO-backed test client) — never start your own.
+   - Use the package's shared container helper (`startPostgres`, or the local-disk storage client) — never start your own.
    - Seed prerequisites directly via SQL (e.g. a user row for FK constraints).
    - Keep the connection-leak assertion: record `pool.Stat().AcquiredConns()` before and assert it returns to baseline after.
    - For storage round-trips: `Upload` → object exists → `PresignGet` → signed URL fetchable → `Delete` → object gone.
@@ -67,7 +67,7 @@ Requires a running Docker daemon for the integration and E2E tiers.
 A feature is not "tested" until all of the following hold:
 
 - [ ] Unit tests cover the success path and every error path the service can return.
-- [ ] Component tests exercise real behavior against containerized Postgres/MinIO, with the connection-leak baseline assertion.
+- [ ] Component tests exercise real behavior against containerized Postgres / local-disk storage, with the connection-leak baseline assertion.
 - [ ] E2E tests assert permanent state changes via direct DB/S3 queries, not just response codes.
 - [ ] `go test -race ./...` passes.
 - [ ] Mocks regenerated and expectations updated when `repository.go` interfaces changed.

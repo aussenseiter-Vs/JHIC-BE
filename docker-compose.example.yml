@@ -7,27 +7,10 @@ services:
     environment:
       - PORT=8080
       - DATABASE_URL=${DATABASE_URL}
-      - B2_ENDPOINT=${B2_ENDPOINT:-s3.eu-central-003.backblazeb2.com}
-      - B2_REGION=${B2_REGION:-eu-central-003}
-      - B2_KEY_ID=${B2_KEY_ID}
-      - B2_APP_KEY=${B2_APP_KEY}
-      - B2_BUCKET=${B2_BUCKET:-jhic-berita-images}
+      - STORAGE_DIR=/app/data
+    volumes:
+      - jhic-data:/app/data
     restart: unless-stopped
 
-  minio:
-    image: minio/minio:latest
-    container_name: jhic-minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio-data:/data
-    profiles:
-      - local
-
 volumes:
-  minio-data:
+  jhic-data:

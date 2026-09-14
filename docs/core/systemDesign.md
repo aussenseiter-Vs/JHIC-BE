@@ -53,7 +53,7 @@ internal/
 │   ├── llm/                 — OpenAI-compatible chat completions + embeddings client
 │   ├── knowledge/           — markdown chunker + KB seeder (pgvector)
 │   ├── response/            — JSON response helpers
-│   └── storage/             — S3-compatible storage (Backblaze B2 / MinIO)
+│   └── storage/             — Filesystem storage (local disk, read-through proxy)
 ├── pkg/id/                  — Snowflake ID generator (stdlib only)
 └── router.go                — Route registration + middleware chain
 

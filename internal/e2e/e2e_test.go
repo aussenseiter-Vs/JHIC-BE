@@ -16,9 +16,6 @@ import (
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/auth"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/domain/berita"
 	"github.com/aussenseiter-VsRB/JHIC-BE/internal/pkg/id"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -96,10 +93,7 @@ func uploadPNG(t *testing.T, target, token string) *http.Response {
 
 func assertObjectExists(t *testing.T, e *env, key string) []byte {
 	t.Helper()
-	obj, err := e.verifyS3.GetObject(context.Background(), &s3.GetObjectInput{
-		Bucket: aws.String(testBucket),
-		Key:    aws.String(key),
-	})
+	obj, err := e.store.Get(context.Background(), key)
 	require.NoError(t, err)
 	data, err := io.ReadAll(obj.Body)
 	require.NoError(t, err)
@@ -109,12 +103,8 @@ func assertObjectExists(t *testing.T, e *env, key string) []byte {
 
 func assertObjectMissing(t *testing.T, e *env, key string) {
 	t.Helper()
-	_, err := e.verifyS3.GetObject(context.Background(), &s3.GetObjectInput{
-		Bucket: aws.String(testBucket),
-		Key:    aws.String(key),
-	})
-	var noSuchKey *types.NoSuchKey
-	require.ErrorAs(t, err, &noSuchKey)
+	_, err := e.store.Get(context.Background(), key)
+	require.Error(t, err)
 }
 
 func extractImageRef(t *testing.T, content string) string {
@@ -288,10 +278,7 @@ func TestE2E_BeritaLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, rawImagePath)
 
-	obj, err := e.verifyS3.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(testBucket),
-		Key:    aws.String(rawImagePath),
-	})
+	obj, err := e.store.Get(ctx, rawImagePath)
 	require.NoError(t, err)
 	stored, err := io.ReadAll(obj.Body)
 	require.NoError(t, err)

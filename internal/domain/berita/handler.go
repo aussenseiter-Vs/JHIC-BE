@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -486,25 +485,5 @@ func extractObjectPath(imageURL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	path := strings.TrimPrefix(parsed.Path, "/")
-	if isPathStyleEndpoint(parsed.Host) {
-		// Path-style S3-compatible URLs are https://<service>/<bucket>/<key>;
-		// the bucket is the first path segment and not part of the object key.
-		if i := strings.Index(path, "/"); i >= 0 {
-			return path[i+1:], nil
-		}
-		return "", nil
-	}
-	return path, nil
-}
-
-func isPathStyleEndpoint(host string) bool {
-	h := host
-	if i := strings.IndexByte(h, ':'); i >= 0 {
-		h = h[:i]
-	}
-	if h == "localhost" || net.ParseIP(h) != nil {
-		return true
-	}
-	return strings.HasPrefix(h, "s3.") && strings.HasSuffix(h, ".backblazeb2.com")
+	return strings.TrimPrefix(parsed.Path, "/"), nil
 }

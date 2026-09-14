@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"io"
-	"time"
 )
 
 type Object struct {
@@ -16,5 +15,4 @@ type Client interface {
 	Upload(ctx context.Context, path string, contentType string, reader io.Reader) (string, error)
 	Get(ctx context.Context, path string) (*Object, error)
 	Delete(ctx context.Context, path string) error
-	PresignGet(ctx context.Context, path string, ttl time.Duration) (string, error)
 }

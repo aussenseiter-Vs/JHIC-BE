@@ -11,11 +11,7 @@ type Config struct {
 	Port              int
 	CORSAllowedOrigin []string
 	DatabaseURL       string
-	B2Endpoint        string
-	B2KeyID           string
-	B2AppKey          string
-	B2Bucket          string
-	B2Region          string
+	StorageDir        string
 
 	LLMBaseURL    string
 	LLMAPIKey     string
@@ -58,11 +54,7 @@ func Load() *Config {
 		Port:              port,
 		CORSAllowedOrigin: origin,
 		DatabaseURL:       getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/jhic?sslmode=disable"),
-		B2Endpoint:        getEnv("B2_ENDPOINT", "s3.eu-central-003.backblazeb2.com"),
-		B2KeyID:           getEnv("B2_KEY_ID", ""),
-		B2AppKey:          getEnv("B2_APP_KEY", ""),
-		B2Bucket:          getEnv("B2_BUCKET", "jhic-berita-images"),
-		B2Region:          resolveB2Region(getEnv("B2_REGION", ""), getEnv("B2_ENDPOINT", "s3.eu-central-003.backblazeb2.com")),
+		StorageDir:        getEnv("STORAGE_DIR", "data"),
 
 		LLMBaseURL:    getEnv("LLM_BASE_URL", ""),
 		LLMAPIKey:     getEnv("LLM_API_KEY", ""),
@@ -88,24 +80,4 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
-}
-
-func resolveB2Region(region, endpoint string) string {
-	if region != "" {
-		return region
-	}
-	host := endpoint
-	if i := strings.Index(host, "://"); i >= 0 {
-		host = host[i+len("://"):]
-	}
-	if i := strings.Index(host, "/"); i >= 0 {
-		host = host[:i]
-	}
-	if strings.HasPrefix(host, "s3.") && strings.HasSuffix(host, ".backblazeb2.com") {
-		parts := strings.Split(host, ".")
-		if len(parts) >= 4 && parts[1] != "" {
-			return parts[1]
-		}
-	}
-	return "us-east-005"
 }

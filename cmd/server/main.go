@@ -64,20 +64,13 @@ func main() {
 	userSvc := user.NewService(userRepo)
 	userHnd := user.NewHandler(userSvc)
 
-	if cfg.B2Endpoint == "" || cfg.B2KeyID == "" || cfg.B2AppKey == "" {
-		log.Fatalf("b2 storage: B2_ENDPOINT, B2_KEY_ID and B2_APP_KEY must be set (see .env.example)")
+	if cfg.StorageDir == "" {
+		log.Fatalf("local storage: STORAGE_DIR must be set (see .env.example)")
 	}
 
-	b2Cfg := storage.B2Config{
-		Endpoint: cfg.B2Endpoint,
-		Region:   cfg.B2Region,
-		KeyID:    cfg.B2KeyID,
-		AppKey:   cfg.B2AppKey,
-		Bucket:   cfg.B2Bucket,
-	}
-	b2Client, err := storage.NewB2Client(ctx, b2Cfg)
+	store, err := storage.NewLocalClient(storage.LocalConfig{Dir: cfg.StorageDir})
 	if err != nil {
-		log.Fatalf("b2 storage: %v", err)
+		log.Fatalf("local storage: %v", err)
 	}
 
 	beritaRepo := beritapg.NewRepository(pool)
@@ -85,7 +78,7 @@ func main() {
 	analyticsSvc := analytics.NewService(analyticsRepo)
 	analyticsHnd := analytics.NewHandler(analyticsRepo)
 	beritaSvc := berita.NewService(beritaRepo)
-	beritaHnd := berita.NewHandler(beritaSvc, b2Client, analyticsSvc)
+	beritaHnd := berita.NewHandler(beritaSvc, store, analyticsSvc)
 
 	pklRepo := pklpg.NewRepository(pool)
 	pklSvc := pkl.NewService(pklRepo, userRepo)
