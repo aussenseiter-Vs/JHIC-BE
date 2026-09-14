@@ -42,10 +42,12 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          timeout: 300s
           script: |
             cd ${{ vars.VPS_APP_DIR }}
             git pull --ff-only
             [ -f .env ] || printf 'PORT=8080\n' > .env
             docker compose pull
-            docker compose up -d
+            docker compose up -d --wait
+            docker compose ps
             docker image prune -f
