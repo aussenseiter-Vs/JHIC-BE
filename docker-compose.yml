@@ -44,8 +44,9 @@ services:
     restart: unless-stopped
     environment:
       MODEL_ID: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
-      MAX_BATCH_TOKENS: 8192
-      MAX_CONCURRENT_REQUESTS: 64
+      MAX_BATCH_TOKENS: 1024
+      MAX_CONCURRENT_REQUESTS: 8
+      TOKENIZATION_WORKERS: 1
     volumes:
       - tei-data:/data
     healthcheck:
