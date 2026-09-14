@@ -12,6 +12,7 @@ services:
     env_file: .env
     environment:
       STORAGE_DIR: /app/data
+      DATABASE_URL: postgres://${POSTGRES_USER:-jhic}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-jhic}?sslmode=disable
     volumes:
       - jhic-data:/app/data
     restart: unless-stopped
