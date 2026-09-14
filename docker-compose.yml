@@ -6,7 +6,7 @@ services:
       postgres:
         condition: service_healthy
       embeddings:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "9090:8080"
     env_file: .env
@@ -44,6 +44,11 @@ services:
       MAX_CONCURRENT_REQUESTS: 64
     volumes:
       - tei-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     mem_limit: 1024m
     memswap_limit: 1536m
 
